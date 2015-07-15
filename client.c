@@ -48,14 +48,16 @@ void *input_thread(void *ptr)
 	op = chat_shm->users[client_id].op_in;
 	binsem_unlock(sem_id, client_id + SEM_IN_MEM);
 	if (op == CHAT_MSG) {
-	    strcat(textbuf, nickstr);
-	    strcat(textbuf, ": ");
-	    strcat(textbuf, msgstr);
-	    strcat(textbuf, "\n");
-	    //
-	    printf("%s", textbuf);
-	    textbuf[0] = '\0';
+	    sprintf(textbuf, "%s: %s\n", nickstr, msgstr);
 	}
+	else if (op == CHAT_NICK) {
+	    sprintf(textbuf, "New user: %s\n", nickstr);
+	}
+	else if (op == CHAT_EXIT) {
+	    sprintf(textbuf, "User exited: %s\n", nickstr);
+	}
+	printf("%s", textbuf);
+	textbuf[0] = '\0';
     }
 
     return NULL;
@@ -102,7 +104,7 @@ int main()
     do {
 	fgets(msgstr, MSG_SIZE, stdin);
 	remove_newline(msgstr);
-
+	
 	binsem_lock(sem_id, client_id + SEM_OUT_MEM);
 	strcpy(chat_shm->users[client_id].msg_out, msgstr);
 	chat_shm->users[client_id].op_out = CHAT_MSG;
@@ -110,10 +112,12 @@ int main()
         binsem_unlock(sem_id, client_id + SEM_OUT_MEM);
     } while (strcmp(msgstr, "") != 0);
 
+    /*
     binsem_lock(sem_id, client_id + SEM_OUT_MEM);
     chat_shm->users[client_id].op_out = CHAT_EXIT;
     binsem_unlock(sem_id, client_id + SEM_OUT_READY);
     binsem_unlock(sem_id, client_id + SEM_OUT_MEM);
+    */
     printf("EXIT!\n");
 
     return 0;

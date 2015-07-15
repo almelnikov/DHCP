@@ -37,6 +37,8 @@ struct thread_info read_info[MAX_CLIENTS];
 struct thread_info write_info[MAX_CLIENTS];
 pthread_t read_thrs[MAX_CLIENTS], write_thrs[MAX_CLIENTS];
 
+void broadcast(int id, const char *msg, int op);
+
 void ringbuf_init(struct ringbuf_t *ptr)
 {
     ptr->len = 0;
@@ -94,12 +96,13 @@ int user_add(const char *nick)
 
 void user_delete(int id)
 {
+    broadcast(id, "", CHAT_EXIT);
     pthread_mutex_lock(&users_lock);
     users[id].active = 0;
     pthread_mutex_unlock(&users_lock);
 }
 
-void broadcast(int id, char *msg)
+void broadcast(int id, const char *msg, int op)
 {
     int i;
     struct message_t *msgptr;
@@ -111,7 +114,7 @@ void broadcast(int id, char *msg)
 	    printf("Memory allocated: %p\n", (void*)msgptr);
 	    strcpy(msgptr->nick, users[id].nick);
 	    strcpy(msgptr->msg, msg);
-	    msgptr->op = CHAT_MSG;
+	    msgptr->op = op;
 	    ringbuf_push(&buffers[i], msgptr);
 	}
     }
@@ -134,7 +137,7 @@ void *read_thread(void *ptr)
 	binsem_unlock(sem_id, id + SEM_OUT_MEM);
 	printf("READ: ID = %d OP = %d MSG = %s\n", id, op, msgstr);
 	if (op == CHAT_MSG && (strcmp(msgstr, "") != 0)) {
-	    broadcast(id, msgstr);
+	    broadcast(id, msgstr, CHAT_MSG);
 	}
 	else {
 	    user_delete(id);
@@ -154,8 +157,8 @@ void *write_thread(void *ptr)
     for (;;) {
 	while ((msgptr = ringbuf_pop(&buffers[id])) == NULL);
 
-	printf("WRITE: OP = %d NICK = %s MSG = %s\n", msgptr->op, msgptr->nick,
-	       msgptr->msg);
+	printf("ID =%d WRITE: OP = %d NICK = %s MSG = %s\n", id, msgptr->op,
+		msgptr->nick, msgptr->msg);
 
 	binsem_lock(sem_id, id + SEM_IN_MEM);
 	strcpy(chat_shm->users[id].nick, msgptr->nick);
@@ -220,6 +223,7 @@ int main()
 	newuser_id = user_add(newnick);
 	binsem_unlock(sem_id, SEM_MEMNICK);
 
+	broadcast(newuser_id, newnick, CHAT_NICK);
 	printf("New user ID = %d NICK = %s\n", newuser_id, newnick);
 
 	binsem_lock(sem_id, SEM_MEMID);

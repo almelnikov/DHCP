@@ -12,6 +12,7 @@
 
 #define CHAT_MSG 0
 #define CHAT_EXIT 1
+#define CHAT_NICK 2
 
 #define SEM_NEWNICK (MAX_CLIENTS * 4)
 #define SEM_NEWID (MAX_CLIENTS * 4 + 1)
